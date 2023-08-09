@@ -221,11 +221,29 @@ func (c *config) loadAgentFeatures() {
 		return
 	}
 	fmt.Println("INFO: agent addr is", c.agentAddr)
-	resp, err := c.httpClient.Get(fmt.Sprintf("http://%s/info", c.agentAddr))
+
+	var (
+		resp *http.Response
+		err  error
+	)
+	startTime := time.Now()
+	attempt := 1
+	for time.Since(startTime) < 30*time.Second {
+		log.Printf("Loading features (attempt %d)", attempt)
+		resp, err = c.httpClient.Get(fmt.Sprintf("http://%s/info", c.agentAddr))
+		if err == nil {
+			log.Printf("Successfully loaded features (attempt %d)", attempt)
+			break
+		}
+		log.Printf("Failed to load features (attempt %d): %v", attempt, err)
+		time.Sleep(time.Second)
+		attempt++
+	}
 	if err != nil {
 		log.Printf("ERROR: Loading features: %v", err)
 		return
 	}
+
 	if resp.StatusCode == http.StatusNotFound {
 		// agent is older than 7.28.0, features not discoverable
 		return
